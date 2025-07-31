@@ -2,13 +2,15 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import HTMLFlipBook from 'react-pageflip';
-import type { HTMLFlipBookProps } from 'react-pageflip';
+import type { PageFlip } from 'react-pageflip';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { ArrowLeft, ArrowRight, ZoomIn, ZoomOut, Expand, ChevronsLeft, ChevronsRight, RotateCcw, Menu } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import type { HTMLFlipBookProps } from 'react-pageflip';
+
 
 interface FlipbookViewProps {
   pages: string[];
@@ -31,25 +33,25 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const flipBookRef = useRef<any>(null);
+  const flipBookRef = useRef<{ pageFlip: () => PageFlip } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pinchDistRef = useRef(0);
 
   const onFlip = useCallback((e: { data: number }) => {
     setCurrentPage(e.data);
   }, []);
 
+  const pageFlip = flipBookRef.current?.pageFlip();
+
   useEffect(() => {
-    const pageFlip = flipBookRef.current?.pageFlip();
     if (pageFlip) {
       setTotalPages(pageFlip.getPageCount());
       pageFlip.on('flip', onFlip);
     }
     return () => {
-      if (pageFlip) {
-        pageFlip.off('flip', onFlip);
-      }
+      pageFlip?.off('flip', onFlip);
     };
-  }, [pages, onFlip]);
+  }, [pageFlip, onFlip]);
 
 
   const handleFullscreenChange = useCallback(() => {
@@ -68,8 +70,29 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
         document.exitFullscreen();
     }
   }, []);
+  
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      pinchDistRef.current = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+    }
+  };
 
-  const pageFlip = flipBookRef.current?.pageFlip();
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const newDist = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+      const diff = newDist - pinchDistRef.current;
+      setZoom(z => Math.min(Math.max(0.5, z + diff * 0.01), 2.5));
+      pinchDistRef.current = newDist;
+    }
+  };
+
 
   const bookProps: HTMLFlipBookProps = {
     width: 550,
@@ -115,7 +138,7 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
   );
 
   return (
-    <div ref={containerRef} className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${isFullscreen ? 'bg-background p-0' : ''}`}>
+    <div ref={containerRef} className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${isFullscreen ? 'bg-background p-0' : ''}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
       <div 
         className="w-full h-full flex-grow flex items-center justify-center"
         style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
