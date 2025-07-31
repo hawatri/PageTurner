@@ -6,6 +6,9 @@ import { ThemeProvider } from '@/components/theme-provider';
 export const metadata: Metadata = {
   title: 'PageTurner',
   description: 'Convert your PDFs into beautiful flipbooks instantly.',
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({
