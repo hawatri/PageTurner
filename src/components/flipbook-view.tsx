@@ -33,8 +33,9 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (flipBookRef.current) {
-        setTotalPages(flipBookRef.current.pageFlip().getPageCount());
+    const pageFlip = flipBookRef.current?.pageFlip();
+    if (pageFlip) {
+        setTotalPages(pageFlip.getPageCount());
     }
   }, [pages]);
 
