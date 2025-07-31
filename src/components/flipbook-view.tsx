@@ -34,16 +34,23 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
   const flipBookRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const onFlip = useCallback((e: { data: number }) => {
+    setCurrentPage(e.data);
+  }, []);
+
   useEffect(() => {
     const pageFlip = flipBookRef.current?.pageFlip();
     if (pageFlip) {
-        setTotalPages(pageFlip.getPageCount());
+      setTotalPages(pageFlip.getPageCount());
+      pageFlip.on('flip', onFlip);
     }
-  }, [pages]);
+    return () => {
+      if (pageFlip) {
+        pageFlip.off('flip', onFlip);
+      }
+    };
+  }, [pages, onFlip]);
 
-  const handleFlip = useCallback((e: { data: number }) => {
-    setCurrentPage(e.data);
-  }, []);
 
   const handleFullscreenChange = useCallback(() => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -75,7 +82,7 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
     maxShadowOpacity: 0.5,
     showCover: true,
     mobileScrollSupport: true,
-    onFlip: handleFlip,
+    onFlip,
     className: "shadow-2xl",
     ref: flipBookRef,
     children: []
@@ -92,11 +99,11 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(0)} disabled={!pageFlip || currentPage === 0}><ChevronsLeft /></Button></TooltipTrigger><TooltipContent><p>First</p></TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipPrev()} disabled={!pageFlip || currentPage === 0}><ArrowLeft /></Button></TooltipTrigger><TooltipContent><p>Previous</p></TooltipContent></Tooltip>
             <Slider min={0} max={totalPages > 0 ? totalPages - 1 : 0} step={1} value={[currentPage]} onValueChange={(value) => pageFlip?.turnToPage(value[0])} className="flex-grow"/>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipNext()} disabled={!pageFlip || currentPage >= totalPages - 2}><ArrowRight /></Button></TooltipTrigger><TooltipContent><p>Next</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(totalPages - 1)} disabled={!pageFlip || currentPage >= totalPages - 2}><ChevronsRight /></Button></TooltipTrigger><TooltipContent><p>Last</p></TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipNext()} disabled={!pageFlip || currentPage >= totalPages - 1}><ArrowRight /></Button></TooltipTrigger><TooltipContent><p>Next</p></TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(totalPages - 1)} disabled={!pageFlip || currentPage >= totalPages - 1}><ChevronsRight /></Button></TooltipTrigger><TooltipContent><p>Last</p></TooltipContent></Tooltip>
         </div>
         
-        <span className="text-sm text-muted-foreground w-24 text-center order-first sm:order-none basis-full sm:basis-auto">Page {currentPage + 1} / {totalPages}</span>
+        <span className="text-sm text-muted-foreground w-24 text-center order-first sm:order-none basis-full sm:basis-auto">Page {currentPage + 1} of {totalPages}</span>
 
         <div className="flex items-center gap-1">
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
