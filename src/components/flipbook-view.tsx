@@ -1,0 +1,123 @@
+"use client";
+
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import HTMLFlipBook from 'react-pageflip';
+import type { HTMLFlipBookProps } from 'react-pageflip';
+import { Button } from './ui/button';
+import { Slider } from './ui/slider';
+import { ArrowLeft, ArrowRight, ZoomIn, ZoomOut, Expand, ChevronsLeft, ChevronsRight, RotateCcw } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface FlipbookViewProps {
+  pages: string[];
+  onReset: () => void;
+}
+
+const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; number: number }>(({ children, number }, ref) => {
+    return (
+        <div className="flex items-center justify-center bg-white shadow-md" ref={ref}>
+            <div className="flex flex-col items-center justify-center w-full h-full">
+                {children}
+            </div>
+        </div>
+    );
+});
+Page.displayName = 'Page';
+
+export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const flipBookRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (flipBookRef.current) {
+        setTotalPages(flipBookRef.current.pageFlip().getPageCount());
+    }
+  }, [pages]);
+
+  const handleFlip = useCallback((e: { data: number }) => {
+    setCurrentPage(e.data);
+  }, []);
+
+  const handleFullscreenChange = useCallback(() => {
+    setIsFullscreen(!!document.fullscreenElement);
+  }, []);
+  
+  useEffect(() => {
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [handleFullscreenChange]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+        containerRef.current?.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+  }, []);
+
+  const pageFlip = flipBookRef.current?.pageFlip();
+
+  const bookProps: HTMLFlipBookProps = {
+    width: 550,
+    height: 730,
+    size: "stretch",
+    minWidth: 315,
+    maxWidth: 1000,
+    minHeight: 400,
+    maxHeight: 1533,
+    maxShadowOpacity: 0.5,
+    showCover: true,
+    mobileScrollSupport: true,
+    onFlip: handleFlip,
+    className: "shadow-2xl",
+    ref: flipBookRef,
+    children: []
+  };
+
+  return (
+    <div ref={containerRef} className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${isFullscreen ? 'bg-background p-0' : ''}`}>
+      <div 
+        className="w-full h-full flex-grow flex items-center justify-center"
+        style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
+      >
+        <HTMLFlipBook {...bookProps}>
+          {pages.map((pageUrl, index) => (
+            <Page number={index + 1} key={index}>
+              <img src={pageUrl} alt={`Page ${index + 1}`} className="max-w-full max-h-full object-contain" data-ai-hint="book page" />
+            </Page>
+          ))}
+        </HTMLFlipBook>
+      </div>
+
+      <div className={`mt-4 p-4 rounded-lg bg-card/80 backdrop-blur-sm shadow-lg border w-full max-w-4xl transition-all duration-300 ${isFullscreen ? 'fixed bottom-4 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100 focus-within:opacity-100' : ''}`}>
+        <TooltipProvider>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-1">
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={onReset}><RotateCcw /></Button></TooltipTrigger><TooltipContent><p>New PDF</p></TooltipContent></Tooltip>
+            </div>
+            
+            <div className="flex items-center gap-1 sm:gap-2 flex-grow max-w-lg">
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(0)} disabled={!pageFlip || currentPage === 0}><ChevronsLeft /></Button></TooltipTrigger><TooltipContent><p>First</p></TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipPrev()} disabled={!pageFlip || currentPage === 0}><ArrowLeft /></Button></TooltipTrigger><TooltipContent><p>Previous</p></TooltipContent></Tooltip>
+                <Slider min={0} max={totalPages > 0 ? totalPages - 1 : 0} step={1} value={[currentPage]} onValueChange={(value) => pageFlip?.turnToPage(value[0])} className="flex-grow"/>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipNext()} disabled={!pageFlip || currentPage >= totalPages - 2}><ArrowRight /></Button></TooltipTrigger><TooltipContent><p>Next</p></TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(totalPages - 1)} disabled={!pageFlip || currentPage >= totalPages - 2}><ChevronsRight /></Button></TooltipTrigger><TooltipContent><p>Last</p></TooltipContent></Tooltip>
+            </div>
+            
+            <span className="text-sm text-muted-foreground w-24 text-center order-first sm:order-none basis-full sm:basis-auto">Page {currentPage + 1} / {totalPages}</span>
+
+            <div className="flex items-center gap-1">
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.min(2.5, z + 0.1))}><ZoomIn /></Button></TooltipTrigger><TooltipContent><p>Zoom In</p></TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={toggleFullscreen}><Expand /></Button></TooltipTrigger><TooltipContent><p>Fullscreen</p></TooltipContent></Tooltip>
+            </div>
+          </div>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+}
