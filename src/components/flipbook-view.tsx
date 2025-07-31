@@ -103,7 +103,7 @@ export function FlipbookView({ pages, onReset }: FlipbookViewProps) {
     minHeight: 400,
     maxHeight: 1533,
     maxShadowOpacity: 0.5,
-    showCover: true,
+    showCover: false,
     mobileScrollSupport: true,
     onFlip,
     className: "shadow-2xl",
