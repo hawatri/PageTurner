@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import HTMLFlipBook from 'react-pageflip';
+import dynamic from 'next/dynamic';
 import type { PageFlip } from 'react-pageflip';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { HTMLFlipBookProps } from 'react-pageflip';
 
+const HTMLFlipBook = dynamic(() => import('react-pageflip'), { ssr: false });
 
 interface FlipbookViewProps {
   pages: string[];
