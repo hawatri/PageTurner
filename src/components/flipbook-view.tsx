@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import type { PageFlip } from 'react-pageflip';
 import { Button } from './ui/button';
@@ -56,6 +56,8 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
   const pinchDistRef = useRef(0);
   const autoFlipIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const readingTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isClient = useMemo(() => typeof window !== 'undefined', []);
 
   const onFlip = useCallback((e: { data: number }) => {
     setCurrentPage(e.data);
@@ -478,39 +480,48 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
         )}
         style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
       >
-        <HTMLFlipBook 
-          {...bookProps}
-          flippingTime={
-            pageTransition === 'fast' ? 300 :
-            pageTransition === 'slow' ? 1500 :
-            pageTransition === 'smooth' ? 800 :
-            flipSpeed
-          }
-        >
-          {pages.map((pageUrl, index) => (
-            <Page number={index + 1} key={index}>
-              <div className="relative w-full h-full">
-                <img 
-                  src={pageUrl} 
-                  alt={`Page ${index + 1}`} 
-                  className={cn(
-                    "max-w-full max-h-full object-contain",
-                    nightMode ? 'filter invert' : ''
-                  )} 
-                  data-ai-hint="book page" 
-                />
-                {showPageNumbers && (
-                  <div className={cn(
-                    "absolute bottom-2 right-2 px-2 py-1 rounded text-xs",
-                    nightMode ? 'bg-white/20 text-gray-200' : 'bg-black/50 text-white'
-                  )}>
-                    {index + 1}
-                  </div>
-                )}
-              </div>
-            </Page>
-          ))}
-        </HTMLFlipBook>
+        {isClient ? (
+          <HTMLFlipBook 
+            {...bookProps}
+            flippingTime={
+              pageTransition === 'fast' ? 300 :
+              pageTransition === 'slow' ? 1500 :
+              pageTransition === 'smooth' ? 800 :
+              flipSpeed
+            }
+          >
+            {pages.map((pageUrl, index) => (
+              <Page number={index + 1} key={index}>
+                <div className="relative w-full h-full">
+                  <img 
+                    src={pageUrl} 
+                    alt={`Page ${index + 1}`} 
+                    className={cn(
+                      "max-w-full max-h-full object-contain",
+                      nightMode ? 'filter invert' : ''
+                    )} 
+                    data-ai-hint="book page" 
+                  />
+                  {showPageNumbers && (
+                    <div className={cn(
+                      "absolute bottom-2 right-2 px-2 py-1 rounded text-xs",
+                      nightMode ? 'bg-white/20 text-gray-200' : 'bg-black/50 text-white'
+                    )}>
+                      {index + 1}
+                    </div>
+                  )}
+                </div>
+              </Page>
+            ))}
+          </HTMLFlipBook>
+        ) : (
+          <div className="flex items-center justify-center w-full h-full">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+              <p className="mt-4 text-muted-foreground">Loading flipbook...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bookmarks sidebar for fullscreen */}
