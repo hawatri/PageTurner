@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
 import { PdfUploader } from './pdf-uploader';
 import { FlipbookView } from './flipbook-view';
 import { Progress } from './ui/progress';
@@ -10,10 +9,6 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { FileText, Clock, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-if (typeof window !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-}
 
 interface DocumentInfo {
   name: string;
@@ -69,6 +64,14 @@ export function PageTurner() {
             setCurrentStep('Reading file...');
             const arrayBuffer = await file.arrayBuffer();
             setProgress(10);
+            
+            // Dynamically import pdfjs-dist to avoid SSR issues
+            const pdfjsLib = await import('pdfjs-dist');
+            
+            // Set worker source
+            if (typeof window !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+            }
             
             setCurrentStep('Parsing PDF structure...');
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
