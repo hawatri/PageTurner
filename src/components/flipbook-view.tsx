@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import type { HTMLFlipBookProps } from 'react-pageflip';
 
 const HTMLFlipBook = dynamic(() => import('react-pageflip'), { ssr: false });
 
@@ -52,7 +51,7 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
   const [startTime] = useState(Date.now());
   const [nightMode, setNightMode] = useState(false);
   const [pageTransition, setPageTransition] = useState('default');
-  const flipBookRef = useRef<{ pageFlip: () => PageFlip } | null>(null);
+  const flipBookRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pinchDistRef = useRef(0);
   const autoFlipIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -62,20 +61,16 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
 
   const onFlip = useCallback((e: { data: number }) => {
     setCurrentPage(e.data);
-    setReadingProgress((e.data / (totalPages - 1)) * 100);
-  }, []);
+    setReadingProgress((e.data / Math.max(1, totalPages - 1)) * 100);
+  }, [totalPages]);
 
-  const pageFlip = flipBookRef.current?.pageFlip();
+  const pageFlip = flipBookRef.current?.pageFlip?.();
 
   useEffect(() => {
     if (pageFlip) {
       setTotalPages(pageFlip.getPageCount());
-      pageFlip.on('flip', onFlip);
     }
-    return () => {
-      pageFlip?.off('flip', onFlip);
-    };
-  }, [pageFlip, onFlip]);
+  }, [pageFlip]);
 
   // Reading time tracker
   useEffect(() => {
@@ -115,15 +110,19 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
   }, []);
   
   useEffect(() => {
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }
   }, [handleFullscreenChange]);
 
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-        containerRef.current?.requestFullscreen();
-    } else {
-        document.exitFullscreen();
+    if (typeof document !== 'undefined') {
+      if (!document.fullscreenElement) {
+          containerRef.current?.requestFullscreen();
+      } else {
+          document.exitFullscreen();
+      }
     }
   }, []);
   
@@ -136,20 +135,16 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
   }, [currentPage]);
 
   const downloadPDF = useCallback(() => {
-    // Create a canvas to combine all pages
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // For demo purposes, we'll just trigger a download of the first page
-    const link = document.createElement('a');
-    link.download = `${fileName}.png`;
-    link.href = pages[0];
-    link.click();
+    if (pages.length > 0) {
+      const link = document.createElement('a');
+      link.download = `${fileName}.png`;
+      link.href = pages[0];
+      link.click();
+    }
   }, [pages, fileName]);
 
   const shareDocument = useCallback(async () => {
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: `${fileName} - Page ${currentPage + 1}`,
@@ -159,12 +154,11 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
       } catch (error) {
         console.log('Error sharing:', error);
       }
-    } else {
-      // Fallback: copy to clipboard
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(window.location.href);
     }
   }, [fileName, currentPage]);
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+
   const formatReadingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -190,6 +184,7 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
     URL.revokeObjectURL(url);
   }, [bookmarks, fileName]);
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 2) {
       pinchDistRef.current = Math.hypot(
         e.touches[0].pageX - e.touches[1].pageX,
@@ -248,27 +243,11 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
       }
     };
 
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => document.removeEventListener('keydown', handleKeyPress);
+    }
   }, [pageFlip, totalPages, toggleFullscreen, toggleBookmark]);
-
-  const bookProps: HTMLFlipBookProps = {
-    width: 550,
-    height: 730,
-    size: "stretch",
-    minWidth: 315,
-    maxWidth: 1000,
-    minHeight: 400,
-    maxHeight: 1533,
-    maxShadowOpacity: 0.5,
-    showCover: false,
-    mobileScrollSupport: true,
-    flippingTime: flipSpeed,
-    onFlip,
-    className: "shadow-2xl rounded-lg overflow-hidden",
-    ref: flipBookRef,
-    children: []
-  };
 
   const SettingsDialog = () => (
     <Dialog>
@@ -330,44 +309,44 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
 
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Auto-flip Settings</h4>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="auto-flip">Auto-flip pages</Label>
-            <Switch
-              id="auto-flip"
-              checked={autoFlip}
-              onCheckedChange={setAutoFlip}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Flip Speed (seconds)</Label>
-            <Select value={flipSpeed.toString()} onValueChange={(value) => setFlipSpeed(Number(value))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="500">0.5s</SelectItem>
-                <SelectItem value="1000">1s</SelectItem>
-                <SelectItem value="2000">2s</SelectItem>
-                <SelectItem value="3000">3s</SelectItem>
-                <SelectItem value="5000">5s</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auto-flip">Auto-flip pages</Label>
+              <Switch
+                id="auto-flip"
+                checked={autoFlip}
+                onCheckedChange={setAutoFlip}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Flip Speed (seconds)</Label>
+              <Select value={flipSpeed.toString()} onValueChange={(value) => setFlipSpeed(Number(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="500">0.5s</SelectItem>
+                  <SelectItem value="1000">1s</SelectItem>
+                  <SelectItem value="2000">2s</SelectItem>
+                  <SelectItem value="3000">3s</SelectItem>
+                  <SelectItem value="5000">5s</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <Separator />
 
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Audio Settings</h4>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="flip-sound">Flip sound effects</Label>
-            <Switch
-              id="flip-sound"
-              checked={flipSound}
-              onCheckedChange={setFlipSound}
-            />
-          </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="flip-sound">Flip sound effects</Label>
+              <Switch
+                id="flip-sound"
+                checked={flipSound}
+                onCheckedChange={setFlipSound}
+              />
+            </div>
           </div>
 
           <Separator />
@@ -389,43 +368,44 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
       </DialogContent>
     </Dialog>
   );
+
   const Controls = ({ className }: { className?: string }) => (
     <TooltipProvider>
       <div className={cn("flex items-center justify-between gap-4 flex-wrap", className)}>
         <div className="flex items-center gap-1">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Tooltip><TooltipTrigger asChild><div><RotateCcw /></div></TooltipTrigger><TooltipContent><p>New PDF</p></TooltipContent></Tooltip>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Load New PDF?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will close the current document and any unsaved bookmarks will be lost. Are you sure you want to continue?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onReset}>Load New PDF</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={downloadPDF}><Download /></Button></TooltipTrigger><TooltipContent><p>Download</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={shareDocument}><Share2 /></Button></TooltipTrigger><TooltipContent><p>Share</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={toggleBookmark} className={bookmarks.includes(currentPage) ? "text-amber-500" : ""}><Bookmark /></Button></TooltipTrigger><TooltipContent><p>Bookmark Page</p></TooltipContent></Tooltip>
-            {bookmarks.length > 0 && (
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={exportBookmarks}><Download className="w-3 h-3" /></Button></TooltipTrigger><TooltipContent><p>Export Bookmarks</p></TooltipContent></Tooltip>
-            )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Tooltip><TooltipTrigger asChild><div><RotateCcw /></div></TooltipTrigger><TooltipContent><p>New PDF</p></TooltipContent></Tooltip>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Load New PDF?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will close the current document and any unsaved bookmarks will be lost. Are you sure you want to continue?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onReset}>Load New PDF</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={downloadPDF}><Download /></Button></TooltipTrigger><TooltipContent><p>Download</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={shareDocument}><Share2 /></Button></TooltipTrigger><TooltipContent><p>Share</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={toggleBookmark} className={bookmarks.includes(currentPage) ? "text-amber-500" : ""}><Bookmark /></Button></TooltipTrigger><TooltipContent><p>Bookmark Page</p></TooltipContent></Tooltip>
+          {bookmarks.length > 0 && (
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={exportBookmarks}><Download className="w-3 h-3" /></Button></TooltipTrigger><TooltipContent><p>Export Bookmarks</p></TooltipContent></Tooltip>
+          )}
         </div>
         
         <div className="flex items-center gap-1 sm:gap-2 flex-grow max-w-lg">
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(0)} disabled={!pageFlip || currentPage === 0}><ChevronsLeft /></Button></TooltipTrigger><TooltipContent><p>First</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipPrev()} disabled={!pageFlip || currentPage === 0}><ArrowLeft /></Button></TooltipTrigger><TooltipContent><p>Previous</p></TooltipContent></Tooltip>
-            <Slider min={0} max={totalPages > 0 ? totalPages - 1 : 0} step={1} value={[currentPage]} onValueChange={(value) => pageFlip?.turnToPage(value[0])} className="flex-grow"/>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipNext()} disabled={!pageFlip || currentPage >= totalPages - 1}><ArrowRight /></Button></TooltipTrigger><TooltipContent><p>Next</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(totalPages - 1)} disabled={!pageFlip || currentPage >= totalPages - 1}><ChevronsRight /></Button></TooltipTrigger><TooltipContent><p>Last</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(0)} disabled={!pageFlip || currentPage === 0}><ChevronsLeft /></Button></TooltipTrigger><TooltipContent><p>First</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipPrev()} disabled={!pageFlip || currentPage === 0}><ArrowLeft /></Button></TooltipTrigger><TooltipContent><p>Previous</p></TooltipContent></Tooltip>
+          <Slider min={0} max={totalPages > 0 ? totalPages - 1 : 0} step={1} value={[currentPage]} onValueChange={(value) => pageFlip?.turnToPage(value[0])} className="flex-grow"/>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.flipNext()} disabled={!pageFlip || currentPage >= totalPages - 1}><ArrowRight /></Button></TooltipTrigger><TooltipContent><p>Next</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => pageFlip?.turnToPage(totalPages - 1)} disabled={!pageFlip || currentPage >= totalPages - 1}><ChevronsRight /></Button></TooltipTrigger><TooltipContent><p>Last</p></TooltipContent></Tooltip>
         </div>
         
         <div className="flex flex-col items-center gap-1 order-first sm:order-none basis-full sm:basis-auto">
@@ -438,14 +418,25 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
         </div>
 
         <div className="flex items-center gap-1">
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.min(2.5, z + 0.1))}><ZoomIn /></Button></TooltipTrigger><TooltipContent><p>Zoom In</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 /> : <Maximize2 />}</Button></TooltipTrigger><TooltipContent><p>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</p></TooltipContent></Tooltip>
-            <SettingsDialog />
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.min(2.5, z + 0.1))}><ZoomIn /></Button></TooltipTrigger><TooltipContent><p>Zoom In</p></TooltipContent></Tooltip>
+          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 /> : <Maximize2 />}</Button></TooltipTrigger><TooltipContent><p>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</p></TooltipContent></Tooltip>
+          <SettingsDialog />
         </div>
       </div>
     </TooltipProvider>
   );
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center w-full h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">Loading flipbook...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -481,48 +472,51 @@ export function FlipbookView({ pages, onReset, fileName = "document" }: Flipbook
         )}
         style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
       >
-        {isClient ? (
-          <HTMLFlipBook 
-            {...bookProps}
-            flippingTime={
-              pageTransition === 'fast' ? 300 :
-              pageTransition === 'slow' ? 1500 :
-              pageTransition === 'smooth' ? 800 :
-              flipSpeed
-            }
-          >
-            {pages.map((pageUrl, index) => (
-              <Page number={index + 1} key={index}>
-                <div className="relative w-full h-full">
-                  <img 
-                    src={pageUrl} 
-                    alt={`Page ${index + 1}`} 
-                    className={cn(
-                      "max-w-full max-h-full object-contain",
-                      nightMode ? 'filter invert' : ''
-                    )} 
-                    data-ai-hint="book page" 
-                  />
-                  {showPageNumbers && (
-                    <div className={cn(
-                      "absolute bottom-2 right-2 px-2 py-1 rounded text-xs",
-                      nightMode ? 'bg-white/20 text-gray-200' : 'bg-black/50 text-white'
-                    )}>
-                      {index + 1}
-                    </div>
-                  )}
-                </div>
-              </Page>
-            ))}
-          </HTMLFlipBook>
-        ) : (
-          <div className="flex items-center justify-center w-full h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-              <p className="mt-4 text-muted-foreground">Loading flipbook...</p>
-            </div>
-          </div>
-        )}
+        <HTMLFlipBook 
+          width={550}
+          height={730}
+          size="stretch"
+          minWidth={315}
+          maxWidth={1000}
+          minHeight={400}
+          maxHeight={1533}
+          maxShadowOpacity={0.5}
+          showCover={false}
+          mobileScrollSupport={true}
+          flippingTime={
+            pageTransition === 'fast' ? 300 :
+            pageTransition === 'slow' ? 1500 :
+            pageTransition === 'smooth' ? 800 :
+            flipSpeed
+          }
+          onFlip={onFlip}
+          className="shadow-2xl rounded-lg overflow-hidden"
+          ref={flipBookRef}
+        >
+          {pages.map((pageUrl, index) => (
+            <Page number={index + 1} key={index}>
+              <div className="relative w-full h-full">
+                <img 
+                  src={pageUrl} 
+                  alt={`Page ${index + 1}`} 
+                  className={cn(
+                    "max-w-full max-h-full object-contain",
+                    nightMode ? 'filter invert' : ''
+                  )} 
+                  data-ai-hint="book page" 
+                />
+                {showPageNumbers && (
+                  <div className={cn(
+                    "absolute bottom-2 right-2 px-2 py-1 rounded text-xs",
+                    nightMode ? 'bg-white/20 text-gray-200' : 'bg-black/50 text-white'
+                  )}>
+                    {index + 1}
+                  </div>
+                )}
+              </div>
+            </Page>
+          ))}
+        </HTMLFlipBook>
       </div>
 
       {/* Bookmarks sidebar for fullscreen */}

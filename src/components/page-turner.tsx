@@ -30,26 +30,30 @@ export function PageTurner() {
 
     // Load recent documents from localStorage
     useEffect(() => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setRecentDocuments(parsed.map((doc: any) => ({
-            ...doc,
-            uploadDate: new Date(doc.uploadDate)
-          })));
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setRecentDocuments(parsed.map((doc: any) => ({
+              ...doc,
+              uploadDate: new Date(doc.uploadDate)
+            })));
+          }
+        } catch (error) {
+          console.error('Error loading recent documents:', error);
         }
-      } catch (error) {
-        console.error('Error loading recent documents:', error);
       }
     }, []);
 
     // Save recent documents to localStorage
     const saveRecentDocuments = useCallback((docs: DocumentInfo[]) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-      } catch (error) {
-        console.error('Error saving recent documents:', error);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+        } catch (error) {
+          console.error('Error saving recent documents:', error);
+        }
       }
     }, []);
 
@@ -144,12 +148,15 @@ export function PageTurner() {
 
     const clearRecentDocuments = useCallback(() => {
       setRecentDocuments([]);
-      localStorage.removeItem(STORAGE_KEY);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY);
+      }
       toast({
         title: 'Recent Documents Cleared',
         description: 'All recent documents have been removed.',
       });
     }, [toast]);
+
     if (isLoading) {
         return (
             <div className="w-full max-w-2xl mx-auto text-center">

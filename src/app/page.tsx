@@ -2,8 +2,6 @@ import dynamic from 'next/dynamic';
 import { Header } from "@/components/header";
 import ErrorBoundary from "@/components/error-boundary";
 import { LoadingSkeleton } from "@/components/loading-skeleton";
-import { PerformanceMonitor } from "@/components/performance-monitor";
-import { AccessibilityMenu } from "@/components/accessibility-menu";
 
 // Dynamically import PageTurner to improve initial load time
 const PageTurner = dynamic(
@@ -18,8 +16,6 @@ export default function Home() {
   return (
     <ErrorBoundary>
       <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
-        <PerformanceMonitor />
-        <AccessibilityMenu />
         <Header />
         <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-8">
           <div className="w-full h-full flex-grow flex flex-col items-center justify-center">

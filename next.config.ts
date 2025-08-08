@@ -2,11 +2,6 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    optimizeCss: true,
-  },
-  compress: true,
-  poweredByHeader: false,
   typescript: {
     ignoreBuildErrors: true,
   },
