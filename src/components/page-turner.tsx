@@ -69,12 +69,15 @@ export function PageTurner() {
             const arrayBuffer = await file.arrayBuffer();
             setProgress(10);
             
-            // Dynamically import pdfjs-dist to avoid SSR issues
-            const pdfjsLib = await import('pdfjs-dist');
-            
-            // Set worker source
+            // Only import pdfjs-dist in browser environment
+            let pdfjsLib;
             if (typeof window !== 'undefined') {
+                // Dynamically import pdfjs-dist to avoid SSR issues
+                pdfjsLib = await import('pdfjs-dist');
+                // Set worker source
                 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+            } else {
+                throw new Error('PDF processing is only available in browser environment');
             }
             
             setCurrentStep('Parsing PDF structure...');
