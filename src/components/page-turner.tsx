@@ -75,7 +75,7 @@ export function PageTurner() {
                 // Dynamically import pdfjs-dist to avoid SSR issues
                 pdfjsLib = await import('pdfjs-dist');
                 // Set worker source
-                pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
             } else {
                 throw new Error('PDF processing is only available in browser environment');
             }
